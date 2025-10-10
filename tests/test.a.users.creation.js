@@ -32,6 +32,10 @@ describe('Test successful creation of users', () => {
                     "password": user.password
                 })
                 .then((res) => {
+                    console.log(`[响应详情] 邮箱 ${user.email}：`);
+                    console.log(`状态码：${res.status}`);
+                    console.log(`响应体：${JSON.stringify(res.body)}`);
+
                     expect(res).to.have.status(201)
                     expect(res).to.be.json
                     expect(res.body).to.have.property("user_id")
@@ -40,6 +44,9 @@ describe('Test successful creation of users', () => {
 
                 })
                 .catch((err) => {
+                    console.error(`[错误详情] 邮箱 ${user.email} 创建失败：`);
+                    console.error(`状态码：${err.response?.status}`);
+                    console.error(`错误信息：${JSON.stringify(err.response?.body)}`);   
                     throw err
                 })
         })
