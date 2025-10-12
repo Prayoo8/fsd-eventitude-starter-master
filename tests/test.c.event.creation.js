@@ -87,7 +87,7 @@ describe('Test successful creation of events when logged in', () => {
                     "name": event.name,
                     "description": event.description,
                     "location": event.location,
-                    "start": event.start,
+                    "start": event.start, // 你修改后控制器接收的是 start 字段
                     "close_registration": event.close_registration,
                     "max_attendees": event.max_attendees
                 })
@@ -97,7 +97,14 @@ describe('Test successful creation of events when logged in', () => {
                     expect(res.body).to.have.property("event_id")
                 })
                 .catch((err) => {
-                    throw err
+                    // 关键：先打印服务器返回的完整响应体，获取具体错误原因
+                    if (err.response) {
+                        console.log(`❌ 测试 ${event.name} 失败，服务器返回详情：`, JSON.stringify(err.response.body, null, 2));
+                    } else {
+                        console.log(`❌ 测试 ${event.name} 失败，无服务器响应：`, err.message);
+                    }
+                    // 再抛出断言错误，不影响测试结果显示
+                    throw err;
                 })
         })
     })

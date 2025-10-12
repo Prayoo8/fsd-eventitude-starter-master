@@ -22,7 +22,7 @@ const eventRoutes = require('./app/routes/eventRoutes.js');
 const questionRoutes = require('./app/routes/questionRoutes.js');
 
 app.use('/users', userRoutes);
-app.use('/auth', authRoutes);
+app.use('/', authRoutes);
 app.use('/events', eventRoutes);
 app.use('/questions', questionRoutes);
 

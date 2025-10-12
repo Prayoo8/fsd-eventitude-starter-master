@@ -1,29 +1,27 @@
 const jwt = require('jsonwebtoken');
-// JWT 密钥（可放在环境变量，此处简化符合作业开发场景）
+// JWT 密钥（保持与登录逻辑一致）
 const JWT_SECRET = 'eventitude_2025_secret';
 
-// 认证中间件：解析请求头中的 Bearer Token
+// 认证中间件：解析请求头中的 X-Authorization Token
 exports.authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // 提取 "Bearer " 后的令牌
+  // 从 X-Authorization 头获取 Token（与测试用例的请求头一致）
+  const token = req.get('X-Authorization'); 
 
   if (!token) {
     return res.status(401).json({
-      error: 'Unauthorized',
-      error_message: '需要登录才能访问（符合作业 API 规范）' // 匹配测试脚本的 error_message 要求
+      error_message: '需要登录才能访问（缺少 X-Authorization Token）'
     });
   }
 
-  // 验证令牌有效性
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  // 验证 Token 有效性
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
-      return res.status(403).json({
-        error: 'Forbidden',
+      return res.status(401).json({
         error_message: '令牌无效或已过期'
       });
     }
-    // 将用户信息挂载到 req 对象，供后续控制器使用
-    req.user = user; // 包含 user_id、email
+    // 将解码后的用户信息（含 user_id、email 等）挂载到 req，供后续控制器使用
+    req.user = decoded; 
     next();
   });
 };
