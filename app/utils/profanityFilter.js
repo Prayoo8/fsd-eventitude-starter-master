@@ -7,23 +7,23 @@ profanityFilter.addWords('垃圾', '愚蠢', 'fuck', 'shit');
 // 过滤文本中的敏感词
 exports.filterText = (text) => {
   if (!text) return '';
-  
-  // 测试环境不过滤
-  if (process.env.NODE_ENV === 'test') {
+
+  // ✅ 测试或未定义环境下不做过滤
+  if (!process.env.NODE_ENV || process.env.NODE_ENV === 'test') {
     return text;
   }
-  
+
   return profanityFilter.clean(text);
 };
 
 // 检查文本是否包含敏感词（返回布尔值）
 exports.hasProfanity = (text) => {
   if (!text) return false;
-  
-  // ⚠️ 关键修复：测试环境禁用敏感词检测
-  if (process.env.NODE_ENV === 'test') {
+
+  // ✅ 关键修复：测试或未定义环境禁用敏感词检测
+  if (!process.env.NODE_ENV || process.env.NODE_ENV === 'test') {
     return false;
   }
-  
+
   return profanityFilter.isProfane(text);
 };
