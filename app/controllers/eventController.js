@@ -1,6 +1,5 @@
 const eventModel = require('../models/eventModel');
 const { hasProfanity } = require('../utils/profanityFilter');
-
 // 1. 创建事件（POST /events，需认证）
 exports.createEvent = async (req, res) => {
   try {
@@ -117,7 +116,7 @@ exports.createEvent = async (req, res) => {
     }
 
     // 所有环境都需要验证：截止时间必须早于开始时间
-    if (closeDate.getTime() > startDate.getTime()) {
+    if (closeDate >= startDate) {
       errMsg = `报名截止日期必须早于事件开始日期（截止：${closeDate.toISOString()}，开始：${startDate.toISOString()}）`;
       console.log(`[创建事件失败] 事件名称：${name} | ${errMsg}`);
       return res.status(400).json({ error_message: errMsg });

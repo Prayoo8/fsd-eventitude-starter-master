@@ -4,7 +4,14 @@ const questionController = require('../controllers/questionController');
 const { authenticateToken } = require('../middleware/auth'); // 需认证
 
 // 所有问题接口均需登录
-router.use(authenticateToken);
+try{
+router.use(authenticateToken);} catch(error){
+    console.error('Error in questionRoutes:', error);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        error_message: '问题接口认证失败：' + error.message
+    });
+}
 
 // 1. 创建问题（POST /questions）
 router.post('/', questionController.createQuestion);
