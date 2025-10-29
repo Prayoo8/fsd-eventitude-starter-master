@@ -10,6 +10,58 @@
         </div>
       </div>
       
+      <!-- Search and Filter Section -->
+      <div class="search-section">
+        <div class="search-container">
+          <div class="search-input-group">
+            <div class="search-icon">🔍</div>
+            <input 
+              v-model="searchQuery" 
+              @input="handleSearch"
+              type="text" 
+              placeholder="Search event name..." 
+              class="search-input"
+            />
+            <button 
+              v-if="searchQuery" 
+              @click="clearSearch" 
+              class="clear-btn"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div class="filter-group">
+            <select v-model="statusFilter" @change="handleSearch" class="status-filter">
+              <option value="">All statuses</option>
+              <option value="OPEN">Open</option>
+              <option value="ARCHIVE">Archived</option>
+              <option v-if="isAuthenticated" value="MY_EVENTS">My events</option>
+              <option v-if="isAuthenticated" value="ATTENDING">Attending</option>
+            </select>
+            
+            <select v-model="sortBy" @change="handleSearch" class="sort-filter">
+              <option value="start_date">By start time</option>
+              <option value="name">By name</option>
+              <option value="max_attendees">By capacity</option>
+            </select>
+          </div>
+        </div>
+        
+        <div v-if="hasActiveFilters" class="active-filters">
+          <span class="filter-label">Active filters:</span>
+          <span v-if="searchQuery" class="filter-tag">
+            Search: "{{ searchQuery }}"
+            <button @click="clearSearchQuery" class="remove-filter">✕</button>
+          </span>
+          <span v-if="statusFilter" class="filter-tag">
+            Status: {{ getStatusText(statusFilter) }}
+            <button @click="clearStatusFilter" class="remove-filter">✕</button>
+          </span>
+          <button @click="clearAllFilters" class="clear-all-btn">Clear all</button>
+        </div>
+      </div>
+      
       <div v-if="loading" class="text-center">
         <p>Loading...</p>
       </div>
@@ -50,7 +102,7 @@
             </div>
             
             <div class="event-creator">
-              <span>Creator: {{ event.creator.first_name }} {{ event.creator.last_name }}</span>
+              <span>Creator: {{ event.first_name }} {{ event.last_name }}</span>
             </div>
           </div>
           
@@ -66,7 +118,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { eventAPI } from '../services/api'
 import { useAuth } from '../store/auth'
 
@@ -78,15 +130,94 @@ export default {
     const loading = ref(true)
     const error = ref('')
     
+    // Search and filter states
+    const searchQuery = ref('')
+    const statusFilter = ref('')
+    const sortBy = ref('start_date')
+    const searchTimeout = ref(null)
+    
     const isAuthenticated = computed(() => state.isAuthenticated)
+    
+    // Check if there are active filters
+    const hasActiveFilters = computed(() => {
+      return searchQuery.value || statusFilter.value
+    })
+    
+    // Search function with debouncing
+    const handleSearch = () => {
+      if (searchTimeout.value) {
+        clearTimeout(searchTimeout.value)
+      }
+      
+      searchTimeout.value = setTimeout(() => {
+        fetchEvents()
+      }, 300) // 300ms debounce
+    }
+    
+    // Clear search query
+    const clearSearchQuery = () => {
+      searchQuery.value = ''
+      handleSearch()
+    }
+    
+    // Clear status filter
+    const clearStatusFilter = () => {
+      statusFilter.value = ''
+      handleSearch()
+    }
+    
+    // Clear all filters
+    const clearAllFilters = () => {
+      searchQuery.value = ''
+      statusFilter.value = ''
+      handleSearch()
+    }
+    
+    // Clear search (for the clear button in input)
+    const clearSearch = () => {
+      searchQuery.value = ''
+      handleSearch()
+    }
+    
+    // Get status text for display
+    const getStatusText = (status) => {
+      const statusMap = {
+        'OPEN': 'Open',
+        'ARCHIVE': 'Archived',
+        'MY_EVENTS': 'My events',
+        'ATTENDING': 'Attending'
+      }
+      return statusMap[status] || status
+    }
     
     const fetchEvents = async () => {
       try {
         loading.value = true
-        const response = await eventAPI.getAllEvents()
-        events.value = response.data.events || []
+        error.value = ''
+        
+        // Prepare search filters
+        const filters = {}
+        if (searchQuery.value.trim()) {
+          filters.q = searchQuery.value.trim()
+        }
+        if (statusFilter.value) {
+          filters.status = statusFilter.value
+        }
+        
+        // Use search API if there are filters, otherwise use getAllEvents
+        let response
+        if (Object.keys(filters).length > 0) {
+          response = await eventAPI.searchEvents(filters)
+          events.value = response.data || []
+        } else {
+          response = await eventAPI.getAllEvents()
+          events.value = response.data.events || []
+        }
+        
+        console.log('Events fetched:', events.value.length)
       } catch (err) {
         error.value = err.response?.data?.error_message || 'Failed to fetch events'
+        console.error('Error fetching events:', err)
       } finally {
         loading.value = false
       }
@@ -140,6 +271,16 @@ export default {
       loading,
       error,
       isAuthenticated,
+      searchQuery,
+      statusFilter,
+      sortBy,
+      hasActiveFilters,
+      handleSearch,
+      clearSearchQuery,
+      clearStatusFilter,
+      clearAllFilters,
+      clearSearch,
+      getStatusText,
       formatDate,
       getEventStatus,
       getEventStatusText
@@ -314,6 +455,7 @@ export default {
   margin-bottom: 24px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   font-size: 15px;
@@ -404,6 +546,190 @@ export default {
   -webkit-backdrop-filter: blur(10px);
 }
 
+/* Search Section Styles */
+.search-section {
+  margin-bottom: 40px;
+  padding: 32px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2);
+}
+
+.search-container {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.search-input-group {
+  position: relative;
+  flex: 1;
+  max-width: 400px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.6);
+  z-index: 2;
+}
+
+.search-input {
+  width: 100%;
+  padding: 14px 16px 14px 48px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 16px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.search-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: rgba(0, 255, 255, 0.5);
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.clear-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.clear-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.filter-group {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.status-filter,
+.sort-filter {
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 140px;
+}
+
+.status-filter:focus,
+.sort-filter:focus {
+  outline: none;
+  border-color: rgba(0, 255, 255, 0.5);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+}
+
+.status-filter option,
+.sort-filter option {
+  background: rgba(30, 30, 30, 0.95);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.filter-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 255, 255, 0.15);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 20px;
+  color: rgba(0, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.remove-filter {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.remove-filter:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.clear-all-btn {
+  padding: 8px 16px;
+  background: rgba(255, 107, 107, 0.2);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 16px;
+  color: #ff6b6b;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.clear-all-btn:hover {
+  background: rgba(255, 107, 107, 0.3);
+  border-color: rgba(255, 107, 107, 0.5);
+  transform: translateY(-1px);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .event-list {
@@ -423,6 +749,38 @@ export default {
   
   .header-actions {
     justify-content: center;
+  }
+  
+  .search-section {
+    padding: 24px 20px;
+    margin-bottom: 32px;
+  }
+  
+  .search-container {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+  
+  .search-input-group {
+    max-width: none;
+  }
+  
+  .filter-group {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .status-filter,
+  .sort-filter {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .active-filters {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
   
   .events-grid {
@@ -454,6 +812,27 @@ export default {
   
   .page-header h1 {
     font-size: 1.8rem;
+  }
+  
+  .search-section {
+    padding: 20px 16px;
+    margin-bottom: 24px;
+  }
+  
+  .search-input {
+    font-size: 14px;
+    padding: 12px 14px 12px 44px;
+  }
+  
+  .search-icon {
+    left: 14px;
+    font-size: 16px;
+  }
+  
+  .status-filter,
+  .sort-filter {
+    font-size: 13px;
+    padding: 10px 14px;
   }
   
   .event-header {

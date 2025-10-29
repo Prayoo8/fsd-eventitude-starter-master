@@ -47,7 +47,7 @@ exports.createEvent = async (eventData, creatorId) => {
 exports.getAllEvents = async (categoryId = null) => {
   return new Promise((resolve, reject) => {
     let sql = `
-      SELECT e.*, u.first_name || ' ' || u.last_name AS creator_name
+      SELECT e.*, u.first_name, u.last_name
       FROM events e
       JOIN users u ON e.creator_id = u.user_id
     `;

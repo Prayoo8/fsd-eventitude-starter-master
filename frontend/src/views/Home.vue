@@ -2,8 +2,8 @@
   <div class="home">
     <div class="hero">
       <div class="container">
-        <h1 class="hero-title">Welcome to Eventitude</h1>
-        <p class="hero-subtitle">Discover, create and participate in amazing events</p>
+        <h1 class="hero-title">Eventitude Awaits</h1>
+        <p class="hero-subtitle">Explore, host, and join unforgettable events</p>
         <div class="hero-actions">
           <router-link to="/events" class="btn btn-primary btn-lg">
             Browse Events
